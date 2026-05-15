@@ -1,10 +1,16 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 
 function checkWebGLSupport(): boolean {
   try {
     const canvas = document.createElement("canvas");
-    const gl = canvas.getContext("webgl2") || canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-    return !!gl;
+    const gl =
+      canvas.getContext("webgl2") ||
+      canvas.getContext("webgl") ||
+      (canvas.getContext("experimental-webgl") as WebGLRenderingContext | null);
+    if (!gl) return false;
+    const ext = gl.getExtension("WEBGL_lose_context");
+    if (ext) ext.loseContext();
+    return true;
   } catch {
     return false;
   }
@@ -16,95 +22,194 @@ interface WebGLGuardProps {
 }
 
 export function WebGLGuard({ children, fallback }: WebGLGuardProps) {
-  const [supported, setSupported] = useState<boolean | null>(null);
+  const [state, setState] = useState<"pending" | "ok" | "failed">("pending");
+
+  const onContextLost = useCallback(() => setState("failed"), []);
 
   useEffect(() => {
-    setSupported(checkWebGLSupport());
-  }, []);
+    if (!checkWebGLSupport()) {
+      setState("failed");
+      return;
+    }
+    setState("ok");
 
-  if (supported === null) return null;
-  if (!supported) return <>{fallback ?? <CSSFallbackScene />}</>;
+    const onLost = (e: Event) => {
+      const target = e.target as HTMLCanvasElement;
+      if (target?.tagName === "CANVAS") onContextLost();
+    };
+    document.addEventListener("webglcontextlost", onLost, true);
+    return () => document.removeEventListener("webglcontextlost", onLost, true);
+  }, [onContextLost]);
+
+  if (state === "pending") return null;
+  if (state === "failed") return <>{fallback ?? <CSSFallbackScene />}</>;
   return <>{children}</>;
 }
 
 export function CSSFallbackScene({ height = "100%" }: { height?: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mouseRef = useRef({ x: 0.5, y: 0.5 });
+  const rafRef = useRef<number>(0);
+  const currentRef = useRef({ x: 0.5, y: 0.5 });
+  const ringRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const particleRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const coreRef = useRef<HTMLDivElement>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      mouseRef.current = {
+        x: (e.clientX - rect.left) / rect.width,
+        y: (e.clientY - rect.top) / rect.height,
+      };
+    };
+
+    const animate = () => {
+      const target = mouseRef.current;
+      const cur = currentRef.current;
+      cur.x += (target.x - cur.x) * 0.06;
+      cur.y += (target.y - cur.y) * 0.06;
+
+      const dx = (cur.x - 0.5) * 2;
+      const dy = (cur.y - 0.5) * 2;
+
+      if (outerRef.current) {
+        outerRef.current.style.transform = `perspective(900px) rotateX(${dy * -22}deg) rotateY(${dx * 22}deg)`;
+      }
+
+      ringRefs.current.forEach((ring, i) => {
+        if (!ring) return;
+        const depth = (i + 1) * 0.35;
+        const base = [0, 45, 20, 70, 10][i] ?? 0;
+        ring.style.transform = `translate(${dx * depth * 18}px, ${dy * depth * 18}px) rotate(${base + cur.x * 12}deg)`;
+      });
+
+      particleRefs.current.forEach((p, i) => {
+        if (!p) return;
+        const angle = (i / particleRefs.current.length) * Math.PI * 2;
+        const r = 40 + (i % 3) * 30;
+        const px = Math.cos(angle) * r + dx * (10 + i * 2);
+        const py = Math.sin(angle) * r + dy * (10 + i * 2);
+        p.style.transform = `translate(${px}px, ${py}px)`;
+        p.style.opacity = String(0.25 + Math.abs(dx) * 0.35);
+      });
+
+      if (coreRef.current) {
+        const scale = 1 + (Math.abs(dx) + Math.abs(dy)) * 0.12;
+        const g = 15 + (Math.abs(dx) + Math.abs(dy)) * 18;
+        coreRef.current.style.transform = `scale(${scale})`;
+        coreRef.current.style.boxShadow = `0 0 ${g}px #00f0ff, 0 0 ${g * 2}px rgba(0,240,255,0.4)`;
+      }
+
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
+    const el = containerRef.current;
+    if (el) el.addEventListener("mousemove", onMouseMove);
+    rafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (el) el.removeEventListener("mousemove", onMouseMove);
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  const rings = [
+    { size: 260, border: "1px solid rgba(0,240,255,0.15)", shadow: "0 0 30px rgba(0,240,255,0.03)" },
+    { size: 190, border: "1px solid rgba(255,0,127,0.12)", shadow: "" },
+    { size: 130, border: "1px solid rgba(0,240,255,0.25)", shadow: "0 0 20px rgba(0,240,255,0.05)" },
+    { size: 80,  border: "2px solid rgba(0,240,255,0.4)",  shadow: "0 0 15px rgba(0,240,255,0.08)" },
+    { size: 50,  border: "1px solid rgba(255,0,127,0.3)",  shadow: "" },
+  ];
+
+  const particles = Array.from({ length: 10 }, (_, i) => ({
+    size: 2 + (i % 3),
+    color: i % 3 === 1 ? "#ff007f" : "#00f0ff",
+  }));
+
+  const stars = [
+    { x: "8%",  y: "12%", size: 1.5, color: "#00f0ff", d: "0s" },
+    { x: "82%", y: "18%", size: 2,   color: "#ffffff", d: "0.8s" },
+    { x: "25%", y: "75%", size: 1,   color: "#00f0ff", d: "1.5s" },
+    { x: "70%", y: "68%", size: 2.5, color: "#ff007f", d: "0.3s" },
+    { x: "48%", y: "88%", size: 1,   color: "#ffffff", d: "2.1s" },
+    { x: "92%", y: "45%", size: 1.5, color: "#00f0ff", d: "1.0s" },
+    { x: "15%", y: "40%", size: 2,   color: "#ffffff", d: "0.6s" },
+    { x: "60%", y: "10%", size: 1,   color: "#ff007f", d: "1.8s" },
+  ];
+
   return (
     <div
-      className="w-full flex items-center justify-center relative overflow-hidden"
-      style={{
-        height,
-        background: "radial-gradient(circle at 60% 50%, #1a1a28 0%, #0a0a0c 70%)",
-      }}
+      ref={containerRef}
+      className="w-full flex items-center justify-center relative overflow-hidden cursor-crosshair select-none"
+      style={{ height, background: "radial-gradient(ellipse at 60% 50%, #151522 0%, #0a0a0c 65%)" }}
     >
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[
-          { x: "15%", y: "20%", size: 2, delay: 0, color: "#00f0ff" },
-          { x: "75%", y: "15%", size: 3, delay: 0.5, color: "#ffffff" },
-          { x: "45%", y: "70%", size: 2, delay: 1, color: "#00f0ff" },
-          { x: "85%", y: "55%", size: 1.5, delay: 1.5, color: "#ff007f" },
-          { x: "25%", y: "80%", size: 2, delay: 0.8, color: "#ffffff" },
-          { x: "60%", y: "30%", size: 1, delay: 0.3, color: "#00f0ff" },
-          { x: "10%", y: "60%", size: 2.5, delay: 2, color: "#ffffff" },
-          { x: "90%", y: "85%", size: 1.5, delay: 1.2, color: "#ff007f" },
-        ].map((star, i) => (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {stars.map((s, i) => (
           <div
             key={i}
             className="absolute rounded-full"
             style={{
-              width: `${star.size}px`,
-              height: `${star.size}px`,
-              left: star.x,
-              top: star.y,
-              background: star.color,
-              opacity: 0.4,
-              animation: `starPulse ${2.5 + i * 0.3}s ease-in-out infinite`,
-              animationDelay: `${star.delay}s`,
-              boxShadow: `0 0 ${star.size * 3}px ${star.color}`,
+              width: `${s.size}px`, height: `${s.size}px`,
+              left: s.x, top: s.y,
+              background: s.color,
+              boxShadow: `0 0 ${s.size * 4}px ${s.color}`,
+              animation: `starBlink ${3 + i * 0.4}s ease-in-out infinite`,
+              animationDelay: s.d,
             }}
           />
         ))}
       </div>
 
-      <div className="relative flex items-center justify-center">
+      <div
+        ref={outerRef}
+        className="relative flex items-center justify-center"
+        style={{ willChange: "transform" }}
+      >
+        {rings.map((ring, i) => (
+          <div
+            key={i}
+            ref={el => { ringRefs.current[i] = el; }}
+            className="absolute rounded-sm"
+            style={{
+              width: `${ring.size}px`, height: `${ring.size}px`,
+              border: ring.border,
+              boxShadow: ring.shadow || undefined,
+              willChange: "transform",
+            }}
+          />
+        ))}
+
+        {particles.map((p, i) => (
+          <div
+            key={`p-${i}`}
+            ref={el => { particleRefs.current[i] = el; }}
+            className="absolute rounded-full"
+            style={{
+              width: `${p.size}px`, height: `${p.size}px`,
+              background: p.color,
+              boxShadow: `0 0 ${p.size * 3}px ${p.color}`,
+              willChange: "transform, opacity",
+            }}
+          />
+        ))}
+
         <div
-          className="absolute border border-[#00f0ff]/20 rounded-sm"
-          style={{
-            width: "220px",
-            height: "220px",
-            animation: "cssRotate 20s linear infinite",
-            boxShadow: "0 0 40px rgba(0,240,255,0.05)",
-          }}
-        />
-        <div
-          className="absolute border border-[#ff007f]/15 rounded-sm"
-          style={{
-            width: "160px",
-            height: "160px",
-            animation: "cssRotate 14s linear infinite reverse",
-          }}
-        />
-        <div
-          className="absolute border border-[#00f0ff]/30 rounded-sm"
-          style={{
-            width: "90px",
-            height: "90px",
-            animation: "cssRotate 8s linear infinite",
-            boxShadow: "0 0 20px rgba(0,240,255,0.1)",
-          }}
-        />
-        <div
-          className="w-3 h-3 rounded-full bg-[#00f0ff]"
-          style={{
-            boxShadow: "0 0 20px #00f0ff, 0 0 40px rgba(0,240,255,0.5)",
-            animation: "corePulse 3s ease-in-out infinite",
-          }}
+          ref={coreRef}
+          className="w-4 h-4 rounded-full bg-[#00f0ff] relative z-10"
+          style={{ boxShadow: "0 0 15px #00f0ff, 0 0 30px rgba(0,240,255,0.5)", willChange: "transform, box-shadow" }}
         />
       </div>
 
+      <div className="absolute bottom-4 right-4 text-[10px] uppercase tracking-[3px] pointer-events-none select-none" style={{ color: "rgba(0,240,255,0.25)" }}>
+        move cursor
+      </div>
+
       <style>{`
-        @keyframes cssRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes starPulse { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.6; } }
-        @keyframes corePulse { 0%, 100% { box-shadow: 0 0 15px #00f0ff, 0 0 30px rgba(0,240,255,0.4); } 50% { box-shadow: 0 0 25px #00f0ff, 0 0 50px rgba(0,240,255,0.7); } }
+        @keyframes starBlink { 0%,100%{opacity:.1} 50%{opacity:.7} }
       `}</style>
     </div>
   );
