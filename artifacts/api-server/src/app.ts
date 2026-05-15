@@ -1,8 +1,15 @@
-import express, { type Express } from "express";
+import express, { type Express, type RequestHandler } from "express";
 import cors from "cors";
-import pinoHttp from "pino-http";
+import * as pinoHttpModule from "pino-http";
+import type { Options } from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+
+// pino-http v10 uses `export =` (CJS) which TypeScript's bundler moduleResolution
+// does not expose as callable via default or namespace import.
+// We cast to the known function signature to satisfy the type checker.
+type PinoHttpFn = (opts: Options) => RequestHandler;
+const pinoHttp = pinoHttpModule as unknown as PinoHttpFn;
 
 const app: Express = express();
 
@@ -10,14 +17,14 @@ app.use(
   pinoHttp({
     logger,
     serializers: {
-      req(req) {
+      req(req: { id: string; method: string; url?: string }) {
         return {
           id: req.id,
           method: req.method,
           url: req.url?.split("?")[0],
         };
       },
-      res(res) {
+      res(res: { statusCode: number }) {
         return {
           statusCode: res.statusCode,
         };
