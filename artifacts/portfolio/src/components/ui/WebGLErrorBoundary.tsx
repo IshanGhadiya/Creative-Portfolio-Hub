@@ -119,9 +119,9 @@ export function CSSFallbackScene({ height = "100%" }: { height?: string }) {
     { size: 340, border: "1px solid rgba(0,240,255,0.18)", shadow: "0 0 40px rgba(0,240,255,0.04)" },
     { size: 260, border: "1px solid rgba(0,240,255,0.28)", shadow: "0 0 30px rgba(0,240,255,0.06)" },
     { size: 190, border: "1px solid rgba(255,0,127,0.06)", shadow: "" },
-    { size: 130, border: "2px solid rgba(0,240,255,0.45)", shadow: "0 0 20px rgba(0,240,255,0.12)" },
-    { size: 80,  border: "2px solid rgba(0,240,255,0.65)", shadow: "0 0 18px rgba(0,240,255,0.2)" },
-    { size: 50,  border: "1px solid rgba(255,0,127,0.1)",  shadow: "" },
+    { size: 130, border: "2px solid rgba(0,240,255,0.7)",  shadow: "0 0 28px rgba(0,240,255,0.25), 0 0 60px rgba(0,240,255,0.08)" },
+    { size: 80,  border: "2px solid rgba(0,240,255,0.95)", shadow: "0 0 22px rgba(0,240,255,0.45), 0 0 50px rgba(0,240,255,0.15)" },
+    { size: 50,  border: "1px solid rgba(255,0,127,0.08)", shadow: "" },
   ];
 
   const particles = Array.from({ length: 12 }, (_, i) => ({
@@ -200,8 +200,8 @@ export function CSSFallbackScene({ height = "100%" }: { height?: string }) {
 
         <div
           ref={coreRef}
-          className="w-5 h-5 rounded-full bg-[#00f0ff] relative z-10"
-          style={{ boxShadow: "0 0 15px #00f0ff, 0 0 35px rgba(0,240,255,0.5)", willChange: "transform, box-shadow" }}
+          className="w-6 h-6 rounded-full bg-[#00f0ff] relative z-10"
+          style={{ boxShadow: "0 0 12px #00f0ff, 0 0 30px rgba(0,240,255,0.8), 0 0 60px rgba(0,240,255,0.4), 0 0 100px rgba(0,240,255,0.15)", willChange: "transform, box-shadow" }}
         />
       </div>
 
