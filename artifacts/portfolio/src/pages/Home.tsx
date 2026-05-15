@@ -2,7 +2,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Link } from "wouter";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { MeshDistortMaterial, Float, Stars, Torus } from "@react-three/drei";
+import { MeshDistortMaterial, Float, Stars } from "@react-three/drei";
 import { Suspense, useRef, useEffect } from "react";
 import { WebGLGuard } from "@/components/ui/WebGLErrorBoundary";
 import * as THREE from "three";
@@ -25,20 +25,15 @@ function InteractiveMesh() {
   const meshRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Mesh>(null);
   const targetRot = useRef({ x: 0, y: 0 });
-  const { viewport } = useThree();
 
   useFrame((state) => {
     if (!meshRef.current || !ringRef.current) return;
-
     targetRot.current.x += (mousePos.y * 0.6 - targetRot.current.x) * 0.05;
     targetRot.current.y += (mousePos.x * 0.9 - targetRot.current.y) * 0.05;
-
     meshRef.current.rotation.x = targetRot.current.x + state.clock.elapsedTime * 0.08;
     meshRef.current.rotation.y = targetRot.current.y + state.clock.elapsedTime * 0.12;
-
     ringRef.current.rotation.x = -targetRot.current.x * 0.5 + state.clock.elapsedTime * 0.05;
     ringRef.current.rotation.z = targetRot.current.y * 0.5 + state.clock.elapsedTime * 0.07;
-
     const scale = 1 + (Math.abs(mousePos.x) + Math.abs(mousePos.y)) * 0.04;
     meshRef.current.scale.setScalar(scale);
   });
@@ -58,12 +53,10 @@ function InteractiveMesh() {
           wireframe
         />
       </mesh>
-
       <mesh ref={ringRef} position={[0, 0, -0.5]}>
         <torusGeometry args={[2.2, 0.015, 8, 120]} />
         <meshStandardMaterial color="#ff007f" emissive="#ff007f" emissiveIntensity={0.8} />
       </mesh>
-
       <mesh position={[0, 0, -0.8]}>
         <torusGeometry args={[1.7, 0.008, 8, 120]} />
         <meshStandardMaterial color="#00f0ff" emissive="#00f0ff" emissiveIntensity={0.5} transparent opacity={0.6} />
@@ -99,19 +92,41 @@ export default function Home() {
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -80]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.25], [1, 0]);
-  const sceneScale = useTransform(scrollYProgress, [0, 0.3], [1, 0.85]);
-  const sceneY = useTransform(scrollYProgress, [0, 0.3], [0, 60]);
+  const sceneOpacity = useTransform(scrollYProgress, [0, 0.35], [1, 0]);
+  const sceneScale = useTransform(scrollYProgress, [0, 0.35], [1, 1.08]);
 
   return (
     <Layout>
-      <section className="w-full min-h-[calc(100vh-4rem)] flex items-center relative overflow-hidden">
-        <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-12 items-center z-10">
+      {/* ─── Full-width hero with 3D background ─────────────────────────────── */}
+      <section className="relative w-full min-h-[calc(100vh-4rem)] overflow-hidden flex items-center">
+
+        {/* 3D scene fills the full section */}
+        <motion.div
+          style={{ opacity: sceneOpacity, scale: sceneScale }}
+          className="absolute inset-0 z-0"
+        >
+          <WebGLGuard>
+            <HeroScene />
+          </WebGLGuard>
+        </motion.div>
+
+        {/* Gradient veil so text stays readable over the 3D bg */}
+        <div
+          className="absolute inset-0 z-10 pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(to right, rgba(10,10,12,0.92) 0%, rgba(10,10,12,0.65) 45%, rgba(10,10,12,0.15) 75%, rgba(10,10,12,0) 100%)",
+          }}
+        />
+
+        {/* Text content */}
+        <div className="container mx-auto px-4 relative z-20">
           <motion.div
             style={{ y: heroY, opacity: heroOpacity }}
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, ease: "easeOut" }}
-            className="flex flex-col gap-6"
+            className="flex flex-col gap-6 max-w-2xl"
           >
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -121,6 +136,7 @@ export default function Home() {
             >
               Frontend Dev / 3D Artist
             </motion.div>
+
             <h1 className="text-5xl md:text-7xl font-bold leading-tight tracking-tight">
               Bridging the gap between{" "}
               <motion.span
@@ -140,41 +156,30 @@ export default function Home() {
               </motion.span>
               .
             </h1>
+
             <p className="text-xl text-muted-foreground max-w-lg">
               Creative technologist specializing in production-grade frontend architecture and spatial composition.
             </p>
+
             <div className="flex flex-wrap gap-4 mt-4">
               <Link
                 href="/works"
-                data-testid="link-explore-works"
                 className="inline-flex h-12 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-all hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(0,240,255,0.35)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Explore Works
               </Link>
               <Link
                 href="/about"
-                data-testid="link-about"
-                className="inline-flex h-12 items-center justify-center rounded-md border border-border bg-transparent px-8 text-sm font-medium shadow-sm transition-all hover:border-primary/50 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="inline-flex h-12 items-center justify-center rounded-md border border-border bg-background/40 backdrop-blur-sm px-8 text-sm font-medium shadow-sm transition-all hover:border-primary/50 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 About & Contact
               </Link>
             </div>
           </motion.div>
-
-          <motion.div
-            style={{ scale: sceneScale, y: sceneY }}
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 1, ease: "easeOut", delay: 0.15 }}
-            className="h-[500px] lg:h-[700px] w-full relative rounded-lg overflow-hidden border border-border/50 bg-card/30 backdrop-blur-sm"
-          >
-            <WebGLGuard>
-              <HeroScene />
-            </WebGLGuard>
-          </motion.div>
         </div>
 
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-10 pointer-events-none">
+        {/* Scroll nudge */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20 pointer-events-none">
           <motion.div
             animate={{ y: [0, 8, 0] }}
             transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
@@ -184,6 +189,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ─── Selected works ───────────────────────────────────────────────────── */}
       <section className="py-24 bg-card/50 relative overflow-hidden">
         <div
           className="absolute inset-0 pointer-events-none"
@@ -201,11 +207,7 @@ export default function Home() {
               <div className="text-xs uppercase tracking-[4px] text-primary/60 font-semibold mb-3">Portfolio</div>
               <h2 className="text-4xl font-bold tracking-tight">Selected Works</h2>
             </div>
-            <Link
-              href="/works"
-              data-testid="link-view-all"
-              className="text-primary hover:underline underline-offset-4 font-medium text-sm transition-all"
-            >
+            <Link href="/works" className="text-primary hover:underline underline-offset-4 font-medium text-sm">
               View all
             </Link>
           </motion.div>
@@ -222,7 +224,6 @@ export default function Home() {
               >
                 <Link
                   href="/works"
-                  data-testid={`link-work-${work.title.toLowerCase().replace(/\s+/g, "-")}`}
                   className="group block overflow-hidden rounded-lg border border-border bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-[0_0_25px_rgba(0,240,255,0.12)]"
                 >
                   <div className="aspect-video w-full overflow-hidden bg-muted relative">
@@ -246,19 +247,14 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ─── Capabilities ─────────────────────────────────────────────────────── */}
       <section className="py-24 relative overflow-hidden border-t border-border/30">
         <div
           className="absolute inset-0 pointer-events-none"
           style={{ background: "radial-gradient(ellipse at 20% 60%, rgba(255,0,127,0.03) 0%, transparent 60%)" }}
         />
         <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.7 }}
-            className="grid md:grid-cols-3 gap-8 text-center"
-          >
+          <div className="grid md:grid-cols-3 gap-8 text-center">
             {[
               { label: "Frontend Dev", value: "React & TypeScript", sub: "Production-grade interfaces" },
               { label: "3D Art", value: "Blender & Nuke", sub: "Animation, environments & VFX" },
@@ -278,7 +274,7 @@ export default function Home() {
                 <div className="text-sm text-muted-foreground">{item.sub}</div>
               </motion.div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
     </Layout>
