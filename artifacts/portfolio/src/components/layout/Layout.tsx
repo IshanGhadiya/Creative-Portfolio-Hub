@@ -1,5 +1,6 @@
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
+import { CursorTrail } from "@/components/ui/CursorTrail";
 import { ReactNode } from "react";
 
 interface LayoutProps {
@@ -10,6 +11,7 @@ interface LayoutProps {
 export function Layout({ children, hideFooter = false }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
+      <CursorTrail />
       <Navbar />
       <main className="flex-1 flex flex-col">
         {children}

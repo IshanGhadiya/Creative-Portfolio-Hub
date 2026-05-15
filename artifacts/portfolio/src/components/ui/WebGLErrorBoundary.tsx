@@ -32,10 +32,8 @@ export function WebGLGuard({ children, fallback }: WebGLGuardProps) {
       return;
     }
     setState("ok");
-
     const onLost = (e: Event) => {
-      const target = e.target as HTMLCanvasElement;
-      if (target?.tagName === "CANVAS") onContextLost();
+      if ((e.target as HTMLElement)?.tagName === "CANVAS") onContextLost();
     };
     document.addEventListener("webglcontextlost", onLost, true);
     return () => document.removeEventListener("webglcontextlost", onLost, true);
@@ -46,171 +44,184 @@ export function WebGLGuard({ children, fallback }: WebGLGuardProps) {
   return <>{children}</>;
 }
 
+/* ─── Fibonacci sphere helper ─────────────────────────────────────────────── */
+function fibSphere(n: number) {
+  const pts: [number, number, number][] = [];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (i / (n - 1)) * 2;
+    const r = Math.sqrt(1 - y * y);
+    const theta = golden * i;
+    pts.push([Math.cos(theta) * r, y, Math.sin(theta) * r]);
+  }
+  return pts;
+}
+
+const BASE_PTS = fibSphere(80);
+
 export function CSSFallbackScene({ height = "100%" }: { height?: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const mouseRef = useRef({ x: 0.5, y: 0.5 });
-  const rafRef = useRef<number>(0);
-  const currentRef = useRef({ x: 0.5, y: 0.5 });
-  const ringRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const particleRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const coreRef = useRef<HTMLDivElement>(null);
-  const outerRef = useRef<HTMLDivElement>(null);
+  const mouse = useRef({ nx: 0.5, ny: 0.5 });
+  const current = useRef({ rotX: 0.08, rotY: 0 });
+  const raf = useRef(0);
 
   useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
+    const onMove = (e: MouseEvent) => {
       const el = containerRef.current;
       if (!el) return;
-      const rect = el.getBoundingClientRect();
-      mouseRef.current = {
-        x: (e.clientX - rect.left) / rect.width,
-        y: (e.clientY - rect.top) / rect.height,
+      const r = el.getBoundingClientRect();
+      mouse.current = {
+        nx: (e.clientX - r.left) / r.width,
+        ny: (e.clientY - r.top) / r.height,
       };
     };
-
-    const animate = () => {
-      const target = mouseRef.current;
-      const cur = currentRef.current;
-      cur.x += (target.x - cur.x) * 0.06;
-      cur.y += (target.y - cur.y) * 0.06;
-
-      const dx = (cur.x - 0.5) * 2;
-      const dy = (cur.y - 0.5) * 2;
-
-      if (outerRef.current) {
-        outerRef.current.style.transform = `perspective(900px) rotateX(${dy * -22}deg) rotateY(${dx * 22}deg)`;
-      }
-
-      ringRefs.current.forEach((ring, i) => {
-        if (!ring) return;
-        const depth = (i + 1) * 0.35;
-        const base = [0, 45, 20, 70, 10][i] ?? 0;
-        ring.style.transform = `translate(${dx * depth * 18}px, ${dy * depth * 18}px) rotate(${base + cur.x * 12}deg)`;
-      });
-
-      particleRefs.current.forEach((p, i) => {
-        if (!p) return;
-        const angle = (i / particleRefs.current.length) * Math.PI * 2;
-        const r = 40 + (i % 3) * 30;
-        const px = Math.cos(angle) * r + dx * (10 + i * 2);
-        const py = Math.sin(angle) * r + dy * (10 + i * 2);
-        p.style.transform = `translate(${px}px, ${py}px)`;
-        p.style.opacity = String(0.25 + Math.abs(dx) * 0.35);
-      });
-
-      if (coreRef.current) {
-        const scale = 1 + (Math.abs(dx) + Math.abs(dy)) * 0.12;
-        const g = 15 + (Math.abs(dx) + Math.abs(dy)) * 18;
-        coreRef.current.style.transform = `scale(${scale})`;
-        coreRef.current.style.boxShadow = `0 0 ${g}px #00f0ff, 0 0 ${g * 2}px rgba(0,240,255,0.4)`;
-      }
-
-      rafRef.current = requestAnimationFrame(animate);
-    };
-
     const el = containerRef.current;
-    if (el) el.addEventListener("mousemove", onMouseMove);
-    rafRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (el) el.removeEventListener("mousemove", onMouseMove);
-      cancelAnimationFrame(rafRef.current);
-    };
+    if (el) el.addEventListener("mousemove", onMove);
+    return () => { if (el) el.removeEventListener("mousemove", onMove); };
   }, []);
 
-  const rings = [
-    { size: 260, border: "1px solid rgba(0,240,255,0.15)", shadow: "0 0 30px rgba(0,240,255,0.03)" },
-    { size: 190, border: "1px solid rgba(255,0,127,0.12)", shadow: "" },
-    { size: 130, border: "1px solid rgba(0,240,255,0.25)", shadow: "0 0 20px rgba(0,240,255,0.05)" },
-    { size: 80,  border: "2px solid rgba(0,240,255,0.4)",  shadow: "0 0 15px rgba(0,240,255,0.08)" },
-    { size: 50,  border: "1px solid rgba(255,0,127,0.3)",  shadow: "" },
-  ];
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-  const particles = Array.from({ length: 10 }, (_, i) => ({
-    size: 2 + (i % 3),
-    color: i % 3 === 1 ? "#ff007f" : "#00f0ff",
-  }));
+    let autoAngle = 0;
 
-  const stars = [
-    { x: "8%",  y: "12%", size: 1.5, color: "#00f0ff", d: "0s" },
-    { x: "82%", y: "18%", size: 2,   color: "#ffffff", d: "0.8s" },
-    { x: "25%", y: "75%", size: 1,   color: "#00f0ff", d: "1.5s" },
-    { x: "70%", y: "68%", size: 2.5, color: "#ff007f", d: "0.3s" },
-    { x: "48%", y: "88%", size: 1,   color: "#ffffff", d: "2.1s" },
-    { x: "92%", y: "45%", size: 1.5, color: "#00f0ff", d: "1.0s" },
-    { x: "15%", y: "40%", size: 2,   color: "#ffffff", d: "0.6s" },
-    { x: "60%", y: "10%", size: 1,   color: "#ff007f", d: "1.8s" },
-  ];
+    const draw = () => {
+      const W = canvas.width;
+      const H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const { nx, ny } = mouse.current;
+      const cur = current.current;
+      const targetX = 0.08 + (ny - 0.5) * 0.6;
+      const targetY = autoAngle + (nx - 0.5) * 0.8;
+      cur.rotX += (targetX - cur.rotX) * 0.04;
+      cur.rotY += (targetY - cur.rotY) * 0.04;
+      autoAngle += 0.004;
+
+      const cx = W / 2;
+      const cy = H / 2;
+      const radius = Math.min(W, H) * 0.33;
+      const focal = radius * 2.4;
+
+      const cosX = Math.cos(cur.rotX), sinX = Math.sin(cur.rotX);
+      const cosY = Math.cos(cur.rotY), sinY = Math.sin(cur.rotY);
+
+      type Pt = { sx: number; sy: number; z: number; alpha: number };
+      const projected: Pt[] = BASE_PTS.map(([x, y, z]) => {
+        // rotate Y
+        const x1 = x * cosY + z * sinY;
+        const z1 = -x * sinY + z * cosY;
+        // rotate X
+        const y2 = y * cosX - z1 * sinX;
+        const z2 = y * sinX + z1 * cosX;
+        const scale = focal / (focal + z2 * radius);
+        return {
+          sx: cx + x1 * radius * scale,
+          sy: cy + y2 * radius * scale,
+          z: z2,
+          alpha: 0.35 + (z2 + 1) * 0.32,
+        };
+      });
+
+      /* edges — connect points that are close on the sphere surface */
+      ctx.lineWidth = 0.6;
+      for (let i = 0; i < BASE_PTS.length; i++) {
+        const [ax, ay, az] = BASE_PTS[i];
+        for (let j = i + 1; j < BASE_PTS.length; j++) {
+          const [bx, by, bz] = BASE_PTS[j];
+          const dist = Math.hypot(ax - bx, ay - by, az - bz);
+          if (dist > 0.52) continue;
+          const a = projected[i];
+          const b = projected[j];
+          const edgeAlpha = ((a.alpha + b.alpha) / 2) * 0.55 * (1 - dist / 0.52);
+          const frontness = Math.max(0, (a.z + b.z) / 2);
+          const r = Math.round(0 + frontness * 20);
+          const g = Math.round(200 + frontness * 55);
+          const bl = Math.round(220 + frontness * 35);
+          ctx.strokeStyle = `rgba(${r},${g},${bl},${edgeAlpha.toFixed(2)})`;
+          ctx.beginPath();
+          ctx.moveTo(a.sx, a.sy);
+          ctx.lineTo(b.sx, b.sy);
+          ctx.stroke();
+        }
+      }
+
+      /* nodes */
+      for (const pt of projected) {
+        const size = 1.6 + (pt.z + 1) * 1.8;
+        const a = pt.alpha;
+
+        /* glow */
+        const grd = ctx.createRadialGradient(pt.sx, pt.sy, 0, pt.sx, pt.sy, size * 4);
+        grd.addColorStop(0, `rgba(0,240,255,${(a * 0.5).toFixed(2)})`);
+        grd.addColorStop(1, "rgba(0,240,255,0)");
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(pt.sx, pt.sy, size * 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        /* dot */
+        ctx.fillStyle = `rgba(0,240,255,${a.toFixed(2)})`;
+        ctx.beginPath();
+        ctx.arc(pt.sx, pt.sy, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      /* accent ring */
+      const ringR = radius * 1.12;
+      const ringAngle = cur.rotY * 0.5;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(ringAngle);
+      ctx.scale(1, 0.28);
+      ctx.beginPath();
+      ctx.arc(0, 0, ringR, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255,0,127,0.18)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+
+      raf.current = requestAnimationFrame(draw);
+    };
+
+    const resize = () => {
+      const el = containerRef.current;
+      if (!el || !canvas) return;
+      canvas.width = el.clientWidth;
+      canvas.height = el.clientHeight;
+    };
+
+    const ro = new ResizeObserver(resize);
+    if (containerRef.current) ro.observe(containerRef.current);
+    resize();
+    raf.current = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(raf.current);
+      ro.disconnect();
+    };
+  }, []);
 
   return (
     <div
       ref={containerRef}
-      className="w-full flex items-center justify-center relative overflow-hidden cursor-crosshair select-none"
-      style={{ height, background: "radial-gradient(ellipse at 60% 50%, #151522 0%, #0a0a0c 65%)" }}
+      className="w-full relative overflow-hidden cursor-crosshair"
+      style={{
+        height,
+        background: "radial-gradient(ellipse at 55% 50%, #0e0e1e 0%, #0a0a0c 70%)",
+      }}
     >
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {stars.map((s, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full"
-            style={{
-              width: `${s.size}px`, height: `${s.size}px`,
-              left: s.x, top: s.y,
-              background: s.color,
-              boxShadow: `0 0 ${s.size * 4}px ${s.color}`,
-              animation: `starBlink ${3 + i * 0.4}s ease-in-out infinite`,
-              animationDelay: s.d,
-            }}
-          />
-        ))}
-      </div>
-
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
       <div
-        ref={outerRef}
-        className="relative flex items-center justify-center"
-        style={{ willChange: "transform" }}
+        className="absolute bottom-4 right-4 text-[10px] uppercase tracking-[3px] pointer-events-none select-none"
+        style={{ color: "rgba(0,240,255,0.25)" }}
       >
-        {rings.map((ring, i) => (
-          <div
-            key={i}
-            ref={el => { ringRefs.current[i] = el; }}
-            className="absolute rounded-sm"
-            style={{
-              width: `${ring.size}px`, height: `${ring.size}px`,
-              border: ring.border,
-              boxShadow: ring.shadow || undefined,
-              willChange: "transform",
-            }}
-          />
-        ))}
-
-        {particles.map((p, i) => (
-          <div
-            key={`p-${i}`}
-            ref={el => { particleRefs.current[i] = el; }}
-            className="absolute rounded-full"
-            style={{
-              width: `${p.size}px`, height: `${p.size}px`,
-              background: p.color,
-              boxShadow: `0 0 ${p.size * 3}px ${p.color}`,
-              willChange: "transform, opacity",
-            }}
-          />
-        ))}
-
-        <div
-          ref={coreRef}
-          className="w-4 h-4 rounded-full bg-[#00f0ff] relative z-10"
-          style={{ boxShadow: "0 0 15px #00f0ff, 0 0 30px rgba(0,240,255,0.5)", willChange: "transform, box-shadow" }}
-        />
-      </div>
-
-      <div className="absolute bottom-4 right-4 text-[10px] uppercase tracking-[3px] pointer-events-none select-none" style={{ color: "rgba(0,240,255,0.25)" }}>
         move cursor
       </div>
-
-      <style>{`
-        @keyframes starBlink { 0%,100%{opacity:.1} 50%{opacity:.7} }
-      `}</style>
     </div>
   );
 }
