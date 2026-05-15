@@ -40,7 +40,7 @@ export function WebGLGuard({ children, fallback }: WebGLGuardProps) {
   return <>{children}</>;
 }
 
-/* ─── JARVIS HUD ──────────────────────────────────────────────────────────── */
+/* ─── JARVIS HUD — thick beveled ring style ───────────────────────────────── */
 export function CSSFallbackScene({ height = "100%" }: { height?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -72,147 +72,241 @@ export function CSSFallbackScene({ height = "100%" }: { height?: string }) {
       const T = clock.current;
 
       const s = smooth.current;
-      const m = mouse.current;
-      s.x += (m.x - s.x) * 0.05;
-      s.y += (m.y - s.y) * 0.05;
-      const mx = (s.x - 0.5) * 2; // −1…1
+      s.x += (mouse.current.x - s.x) * 0.05;
+      s.y += (mouse.current.y - s.y) * 0.05;
+      const mx = (s.x - 0.5) * 2;
       const my = (s.y - 0.5) * 2;
 
       const W = canvas.width;
       const H = canvas.height;
       ctx.clearRect(0, 0, W, H);
 
-      const cx = W / 2 + mx * 22;
-      const cy = H / 2 + my * 16;
-      const R = Math.min(W, H) * 0.35;
+      /* Parallax offset */
+      const ox = mx * 20;
+      const oy = my * 14;
+      const cx = W / 2 + ox;
+      const cy = H / 2 + oy;
+
+      /* Sizing */
+      const R = Math.min(W, H) * 0.41;        // outer radius of the thick ring
+      const bandW = R * 0.27;                  // width of the thick band
+      const innerR = R - bandW;               // inner edge of thick ring (transition to content area)
 
       ctx.save();
       ctx.translate(cx, cy);
 
-      /* ── 1. Background radial glow ── */
+      /* ── 1. Deep background ── */
       {
-        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 1.5);
-        g.addColorStop(0, "rgba(0,30,55,0.45)");
-        g.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = g;
+        const bg = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 1.5);
+        bg.addColorStop(0, "#080d14");
+        bg.addColorStop(0.55, "#050a10");
+        bg.addColorStop(1, "#020406");
+        ctx.fillStyle = bg;
         ctx.fillRect(-cx, -cy, W, H);
       }
 
-      /* ── 2. Hex grid ── */
+      /* ── 2. Blueprint grid clipped to inner circle ── */
       {
-        const hr = 26;
         ctx.save();
-        ctx.translate(-cx, -cy);
-        ctx.strokeStyle = "rgba(0,200,240,0.04)";
+        ctx.beginPath();
+        ctx.arc(0, 0, innerR - 2, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.strokeStyle = "rgba(0,160,210,0.055)";
         ctx.lineWidth = 0.5;
-        const cols = Math.ceil(W / (hr * 1.73)) + 3;
-        const rows = Math.ceil(H / (hr * 1.5)) + 3;
-        for (let row = 0; row < rows; row++) {
-          for (let col = 0; col < cols; col++) {
-            const hx = col * hr * 1.732 + (row % 2) * hr * 0.866;
-            const hy = row * hr * 1.5;
-            ctx.beginPath();
-            for (let i = 0; i < 6; i++) {
-              const a = (i * Math.PI) / 3 - Math.PI / 6;
-              const px = hx + hr * Math.cos(a);
-              const py = hy + hr * Math.sin(a);
-              i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-            }
-            ctx.closePath();
-            ctx.stroke();
-          }
+        const step = 20;
+        ctx.beginPath();
+        for (let x = -innerR; x <= innerR; x += step) {
+          ctx.moveTo(x, -innerR);
+          ctx.lineTo(x, innerR);
         }
+        for (let y = -innerR; y <= innerR; y += step) {
+          ctx.moveTo(-innerR, y);
+          ctx.lineTo(innerR, y);
+        }
+        ctx.stroke();
         ctx.restore();
       }
 
-      /* ── 3. Dashed radial guide lines ── */
+      /* ── 3. Faint outer ring glow ── */
       {
-        ctx.save();
-        ctx.setLineDash([3, 6]);
-        ctx.strokeStyle = "rgba(0,200,240,0.14)";
-        ctx.lineWidth = 0.7;
-        for (let i = 0; i < 8; i++) {
-          ctx.save();
-          ctx.rotate((i / 8) * Math.PI * 2);
-          ctx.beginPath();
-          ctx.moveTo(R * 0.24, 0);
-          ctx.lineTo(R * 1.28, 0);
-          ctx.stroke();
-          ctx.restore();
-        }
-        ctx.setLineDash([]);
-        ctx.restore();
+        const g = ctx.createRadialGradient(0, 0, R * 0.92, 0, 0, R * 1.22);
+        g.addColorStop(0, "rgba(0,200,240,0.22)");
+        g.addColorStop(1, "rgba(0,200,240,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, 0, R * 1.22, 0, Math.PI * 2);
+        ctx.arc(0, 0, R * 0.92, 0, Math.PI * 2, true);
+        ctx.fill();
       }
 
-      /* ── 4. Radar sweep ── */
+      /* ── 4. THICK OUTER RING — 3D beveled gradient ── */
       {
-        const sweep = (T * 0.65) % (Math.PI * 2);
-        // afterglow fan
-        for (let i = 0; i < 50; i++) {
-          const ratio = i / 50;
-          const angle = sweep - ratio * Math.PI * 0.55;
+        const rg = ctx.createRadialGradient(0, 0, innerR, 0, 0, R + 4);
+        rg.addColorStop(0,    "rgba(0,240,255,1)");     // bright inner rim
+        rg.addColorStop(0.04, "rgba(0,60,90,0.97)");    // steep dark drop
+        rg.addColorStop(0.28, "rgba(0,28,50,0.97)");    // dark band center
+        rg.addColorStop(0.58, "rgba(0,40,65,0.95)");
+        rg.addColorStop(0.80, "rgba(0,110,160,0.82)"); // outer highlight rise
+        rg.addColorStop(0.94, "rgba(0,80,130,0.7)");
+        rg.addColorStop(1,    "rgba(0,50,90,0.4)");
+
+        ctx.fillStyle = rg;
+        ctx.beginPath();
+        ctx.arc(0, 0, R + 4, 0, Math.PI * 2);
+        ctx.arc(0, 0, innerR, 0, Math.PI * 2, true);
+        ctx.fill();
+      }
+
+      /* ── 5. Bright inner rim of thick ring ── */
+      {
+        ctx.strokeStyle = "rgba(0,240,255,0.95)";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, innerR, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      /* ── 6. Outer hard rim ── */
+      {
+        ctx.strokeStyle = "rgba(0,180,230,0.55)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, R + 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      /* ── 7. Ruler tick marks INSIDE the thick band ── */
+      {
+        const rulerR = innerR + 6;   // just inside the inner rim
+        const tickCount = 300;
+        for (let i = 0; i < tickCount; i++) {
+          const angle = (i / tickCount) * Math.PI * 2;
+          const major = i % 25 === 0;
+          const med   = i % 5 === 0 && !major;
+          const tLen  = major ? 15 : med ? 9 : 4;
+          const alpha = major ? 0.9 : med ? 0.5 : 0.22;
           ctx.save();
           ctx.rotate(angle);
-          ctx.strokeStyle = `rgba(0,220,255,${((1 - ratio) * 0.065).toFixed(3)})`;
-          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = `rgba(0,220,255,${alpha})`;
+          ctx.lineWidth = major ? 1.3 : 0.6;
           ctx.beginPath();
-          ctx.moveTo(10, 0);
-          ctx.lineTo(R * 1.28, 0);
+          ctx.moveTo(rulerR, 0);
+          ctx.lineTo(rulerR + tLen, 0);
           ctx.stroke();
           ctx.restore();
         }
-        // sweep line
+      }
+
+      /* ── 8. Outer ring notch brackets (8 positions) ── */
+      {
+        const notchAngles = Array.from({ length: 8 }, (_, i) => (i / 8) * Math.PI * 2);
+        for (const angle of notchAngles) {
+          ctx.save();
+          ctx.rotate(angle);
+          ctx.fillStyle = "rgba(0,200,240,0.55)";
+          ctx.fillRect(R - 2, -6, 16, 12);
+          ctx.fillStyle = "rgba(0,240,255,0.9)";
+          ctx.fillRect(R - 2, -1.5, 16, 3);
+          ctx.restore();
+        }
+      }
+
+      /* ── 9. Yellow / gold accent arc (inside band, left side) ── */
+      {
+        const arcR = innerR + bandW * 0.48;
+        ctx.save();
+        ctx.shadowColor = "rgba(255,170,0,0.8)";
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = "rgba(255,175,0,0.92)";
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, arcR, Math.PI * 1.28, Math.PI * 1.82);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+
+      /* ── 10. Gold status dots (cluster, top of band) ── */
+      {
+        const dotR = innerR + bandW * 0.52;
+        const count = 7;
+        for (let i = 0; i < count; i++) {
+          const angle = -Math.PI / 2 + (i - (count - 1) / 2) * 0.044;
+          const blink = Math.sin(T * 2.2 + i * 0.9) > 0.2;
+          ctx.save();
+          ctx.rotate(angle);
+          ctx.fillStyle = blink ? "rgba(255,210,0,0.92)" : "rgba(255,180,0,0.35)";
+          ctx.shadowColor = "rgba(255,200,0,0.7)";
+          ctx.shadowBlur = blink ? 6 : 2;
+          ctx.beginPath();
+          ctx.arc(dotR, 0, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        }
+      }
+
+      /* ── 11. Radar sweep (clipped to inner circle) ── */
+      {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, 0, innerR - 4, 0, Math.PI * 2);
+        ctx.clip();
+
+        const sweep = (T * 0.62) % (Math.PI * 2);
+        for (let i = 0; i < 50; i++) {
+          const ratio = i / 50;
+          const angle = sweep - ratio * Math.PI * 0.52;
+          ctx.save();
+          ctx.rotate(angle);
+          ctx.strokeStyle = `rgba(0,220,255,${((1 - ratio) * 0.055).toFixed(3)})`;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(8, 0);
+          ctx.lineTo(innerR - 6, 0);
+          ctx.stroke();
+          ctx.restore();
+        }
         ctx.save();
         ctx.rotate(sweep);
-        const lg = ctx.createLinearGradient(0, 0, R * 1.28, 0);
-        lg.addColorStop(0, "rgba(0,240,255,1)");
-        lg.addColorStop(1, "rgba(0,240,255,0.05)");
+        const lg = ctx.createLinearGradient(0, 0, innerR - 6, 0);
+        lg.addColorStop(0, "rgba(0,240,255,0.95)");
+        lg.addColorStop(1, "rgba(0,240,255,0.04)");
         ctx.strokeStyle = lg;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(6, 0);
-        ctx.lineTo(R * 1.28, 0);
+        ctx.lineTo(innerR - 6, 0);
         ctx.stroke();
-        ctx.fillStyle = "rgba(0,240,255,0.95)";
-        ctx.beginPath();
-        ctx.arc(R * 1.28, 0, 2, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.restore();
+
         ctx.restore();
       }
 
-      /* ── 5. Outer ring + 72 tick marks ── */
+      /* ── 12. Inner content rings ── */
       {
-        const rr = R * 1.28;
-        ctx.beginPath();
-        ctx.arc(0, 0, rr, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(0,190,230,0.28)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        for (let i = 0; i < 72; i++) {
-          const angle = (i / 72) * Math.PI * 2;
-          const major = i % 6 === 0;
-          const inner = major ? rr - 10 : rr - 5;
-          ctx.save();
-          ctx.rotate(angle);
-          ctx.strokeStyle = major ? "rgba(0,240,255,0.65)" : "rgba(0,200,240,0.22)";
-          ctx.lineWidth = major ? 1.5 : 0.7;
+        const radii = [
+          { r: innerR * 0.82, alpha: 0.18, lw: 0.8 },
+          { r: innerR * 0.64, alpha: 0.22, lw: 0.8 },
+          { r: innerR * 0.46, alpha: 0.35, lw: 1.0 },
+        ];
+        for (const ring of radii) {
           ctx.beginPath();
-          ctx.moveTo(inner, 0);
-          ctx.lineTo(rr + 1, 0);
+          ctx.arc(0, 0, ring.r, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(0,200,240,${ring.alpha})`;
+          ctx.lineWidth = ring.lw;
           ctx.stroke();
-          ctx.restore();
         }
       }
 
-      /* ── 6. Rotating arc ring A ── */
+      /* ── 13. Rotating arc segments (mid ring) ── */
       {
-        const rr = R * 0.92;
+        const rr = innerR * 0.64;
         const base = T * 0.28;
-        const segs = [
-          [base, base + Math.PI * 0.58],
-          [base + Math.PI * 0.78, base + Math.PI * 1.18],
-          [base + Math.PI * 1.38, base + Math.PI * 1.88],
+        const segs: [number, number][] = [
+          [base, base + Math.PI * 0.55],
+          [base + Math.PI * 0.75, base + Math.PI * 1.18],
+          [base + Math.PI * 1.38, base + Math.PI * 1.85],
         ];
         ctx.lineWidth = 1.8;
         ctx.strokeStyle = "rgba(0,220,255,0.62)";
@@ -220,10 +314,9 @@ export function CSSFallbackScene({ height = "100%" }: { height?: string }) {
           ctx.beginPath();
           ctx.arc(0, 0, rr, s, e);
           ctx.stroke();
-          // end-cap dots
-          for (const angle of [s, e]) {
+          for (const ang of [s, e]) {
             ctx.save();
-            ctx.rotate(angle);
+            ctx.rotate(ang);
             ctx.fillStyle = "rgba(0,240,255,0.9)";
             ctx.beginPath();
             ctx.arc(rr, 0, 2.5, 0, Math.PI * 2);
@@ -233,16 +326,16 @@ export function CSSFallbackScene({ height = "100%" }: { height?: string }) {
         }
       }
 
-      /* ── 7. Counter-rotating arc ring B ── */
+      /* ── 14. Counter-rotating inner arc ── */
       {
-        const rr = R * 0.72;
-        const base = -T * 0.38 + 0.8;
-        const segs = [
-          [base, base + Math.PI * 0.75],
-          [base + Math.PI, base + Math.PI * 1.65],
+        const rr = innerR * 0.46;
+        const base = -T * 0.38 + 1.0;
+        const segs: [number, number][] = [
+          [base, base + Math.PI * 0.72],
+          [base + Math.PI, base + Math.PI * 1.6],
         ];
         ctx.lineWidth = 1.2;
-        ctx.strokeStyle = "rgba(0,180,255,0.42)";
+        ctx.strokeStyle = "rgba(0,190,255,0.42)";
         for (const [s, e] of segs) {
           ctx.beginPath();
           ctx.arc(0, 0, rr, s, e);
@@ -250,189 +343,91 @@ export function CSSFallbackScene({ height = "100%" }: { height?: string }) {
         }
       }
 
-      /* ── 8. Dashed inner ring with pointer arrows ── */
+      /* ── 15. Arc reactor core ring ── */
       {
-        const rr = R * 0.54;
-        ctx.save();
-        ctx.setLineDash([5, 7]);
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = "rgba(0,220,255,0.48)";
-        ctx.beginPath();
-        ctx.arc(0, 0, rr, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.restore();
-
-        // 4 rotating arrow pointers
-        ctx.save();
-        ctx.rotate(T * 0.14);
-        for (let i = 0; i < 4; i++) {
-          ctx.rotate(Math.PI / 2);
-          ctx.fillStyle = "rgba(0,240,255,0.75)";
-          ctx.beginPath();
-          ctx.moveTo(rr - 7, -3.5);
-          ctx.lineTo(rr + 3, 0);
-          ctx.lineTo(rr - 7, 3.5);
-          ctx.closePath();
-          ctx.fill();
-        }
-        ctx.restore();
-      }
-
-      /* ── 9. Arc reactor inner ring ── */
-      {
-        const rr = R * 0.3;
-        // Glow halo
-        const g = ctx.createRadialGradient(0, 0, rr * 0.4, 0, 0, rr * 1.6);
-        g.addColorStop(0, "rgba(0,240,255,0.14)");
+        const rr = innerR * 0.28;
+        // halo
+        const g = ctx.createRadialGradient(0, 0, rr * 0.5, 0, 0, rr * 1.7);
+        g.addColorStop(0, "rgba(0,240,255,0.15)");
         g.addColorStop(1, "rgba(0,240,255,0)");
         ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.arc(0, 0, rr * 1.6, 0, Math.PI * 2);
+        ctx.arc(0, 0, rr * 1.7, 0, Math.PI * 2);
         ctx.fill();
-
-        // Bright ring
+        // ring
+        ctx.strokeStyle = "rgba(0,240,255,0.9)";
         ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgba(0,240,255,0.88)";
         ctx.beginPath();
         ctx.arc(0, 0, rr, 0, Math.PI * 2);
         ctx.stroke();
-
-        // Spinning inner segments (6-blade)
+        // 6-blade spinner
         ctx.save();
-        ctx.rotate(T * 1.6);
+        ctx.rotate(T * 1.55);
         for (let i = 0; i < 6; i++) {
           ctx.rotate(Math.PI / 3);
           ctx.beginPath();
-          ctx.arc(0, 0, rr * 0.7, -0.22, 0.22);
+          ctx.arc(0, 0, rr * 0.72, -0.22, 0.22);
           ctx.strokeStyle = "rgba(0,240,255,0.65)";
           ctx.lineWidth = 1;
           ctx.stroke();
         }
         ctx.restore();
-
-        // Slow outer dividers (3-blade)
+        // slow 3-arm dividers
         ctx.save();
         ctx.rotate(-T * 0.4);
+        ctx.strokeStyle = "rgba(0,240,255,0.3)";
+        ctx.lineWidth = 0.8;
         for (let i = 0; i < 3; i++) {
           ctx.rotate((Math.PI * 2) / 3);
-          ctx.strokeStyle = "rgba(0,240,255,0.3)";
-          ctx.lineWidth = 0.8;
           ctx.beginPath();
-          ctx.moveTo(rr * 0.45, 0);
-          ctx.lineTo(rr * 0.95, 0);
+          ctx.moveTo(rr * 0.42, 0);
+          ctx.lineTo(rr * 0.93, 0);
           ctx.stroke();
         }
         ctx.restore();
       }
 
-      /* ── 10. Orbiting data dots ── */
+      /* ── 16. Central bright core ── */
       {
-        const dots = [
-          { r: R * 1.28, speed: 1.1, phase: 0 },
-          { r: R * 0.92, speed: -0.9, phase: 2.1 },
-          { r: R * 0.72, speed: 0.7, phase: 4.2 },
-          { r: R * 0.54, speed: -1.3, phase: 1.0 },
-        ];
-        for (const d of dots) {
-          const angle = T * d.speed + d.phase;
-          const px = Math.cos(angle) * d.r;
-          const py = Math.sin(angle) * d.r;
-          const g = ctx.createRadialGradient(px, py, 0, px, py, 9);
-          g.addColorStop(0, "rgba(0,240,255,0.75)");
-          g.addColorStop(1, "rgba(0,240,255,0)");
-          ctx.fillStyle = g;
-          ctx.beginPath();
-          ctx.arc(px, py, 9, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = "#00f0ff";
-          ctx.beginPath();
-          ctx.arc(px, py, 2.5, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-
-      /* ── 11. HUD corner brackets ── */
-      {
-        const bd = R * 1.12;
-        const bs = 20;
-        const corners = [
-          { x: -bd, y: -bd, sx: 1, sy: 1 },
-          { x: bd,  y: -bd, sx: -1, sy: 1 },
-          { x: -bd, y: bd,  sx: 1,  sy: -1 },
-          { x: bd,  y: bd,  sx: -1, sy: -1 },
-        ];
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = "rgba(0,240,255,0.55)";
-        for (const c of corners) {
-          ctx.beginPath();
-          ctx.moveTo(c.x + c.sx * bs, c.y);
-          ctx.lineTo(c.x, c.y);
-          ctx.lineTo(c.x, c.y + c.sy * bs);
-          ctx.stroke();
-          // corner dot
-          ctx.fillStyle = "rgba(0,240,255,0.8)";
-          ctx.beginPath();
-          ctx.arc(c.x, c.y, 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-
-      /* ── 12. Data readout arc (top) ── */
-      {
-        const rr = R * 1.42;
-        ctx.save();
-        ctx.setLineDash([2, 4]);
-        ctx.strokeStyle = "rgba(0,200,240,0.28)";
-        ctx.lineWidth = 0.8;
+        const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, 26);
+        cg.addColorStop(0,   "rgba(255,255,255,1)");
+        cg.addColorStop(0.2, "rgba(200,245,255,0.95)");
+        cg.addColorStop(0.6, "rgba(0,240,255,0.5)");
+        cg.addColorStop(1,   "rgba(0,240,255,0)");
+        ctx.fillStyle = cg;
         ctx.beginPath();
-        ctx.arc(0, 0, rr, -Math.PI * 0.35, -Math.PI * 0.65, true);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.restore();
+        ctx.arc(0, 0, 26, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
-        // Blinking readout dots along the arc
-        for (let i = 0; i < 12; i++) {
-          const ratio = i / 12;
-          const angle = -Math.PI * 0.35 - ratio * Math.PI * 0.3;
-          const blink = Math.sin(T * 3 + i * 0.7) > 0.3 ? 1 : 0.2;
+      /* ── 17. Data blink readout (at top of thick ring, inside band) ── */
+      {
+        const rr = innerR + bandW * 0.28;
+        const count = 28;
+        for (let i = 0; i < count; i++) {
+          const angle = -Math.PI / 2 + (-count / 2 + i) * 0.038;
+          const blink = Math.sin(T * 3.5 + i * 0.65);
+          const alpha = blink > 0.4 ? 0.85 : blink > -0.1 ? 0.35 : 0.1;
           ctx.save();
           ctx.rotate(angle);
-          ctx.fillStyle = `rgba(0,240,255,${(0.2 + blink * 0.5).toFixed(2)})`;
-          ctx.beginPath();
-          ctx.arc(rr, 0, 1.2, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillStyle = `rgba(0,220,255,${alpha})`;
+          ctx.fillRect(rr - 1, -1, 3, 2);
           ctx.restore();
         }
       }
 
-      /* ── 13. Central reactor core ── */
-      {
-        const coreG = ctx.createRadialGradient(0, 0, 0, 0, 0, 22);
-        coreG.addColorStop(0, "rgba(255,255,255,1)");
-        coreG.addColorStop(0.25, "rgba(180,240,255,0.95)");
-        coreG.addColorStop(0.6, "rgba(0,240,255,0.5)");
-        coreG.addColorStop(1, "rgba(0,240,255,0)");
-        ctx.fillStyle = coreG;
-        ctx.beginPath();
-        ctx.arc(0, 0, 22, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(0, 0, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      /* ── 14. Mouse-reactive ping ring ── */
+      /* ── 18. Mouse-reactive ping ring ── */
       {
         const dist = Math.sqrt(mx * mx + my * my);
-        if (dist > 0.05) {
-          const pingR = R * 0.42 + dist * 30;
-          const alpha = 0.12 + dist * 0.12;
-          ctx.lineWidth = 1;
-          ctx.strokeStyle = `rgba(0,240,255,${alpha.toFixed(2)})`;
+        if (dist > 0.04) {
+          ctx.lineWidth = 0.8;
+          ctx.strokeStyle = `rgba(0,240,255,${(dist * 0.15).toFixed(2)})`;
           ctx.beginPath();
-          ctx.arc(0, 0, pingR, 0, Math.PI * 2);
+          ctx.arc(0, 0, innerR * (0.35 + dist * 0.2), 0, Math.PI * 2);
           ctx.stroke();
         }
       }
@@ -447,16 +442,11 @@ export function CSSFallbackScene({ height = "100%" }: { height?: string }) {
       canvas.width = el.clientWidth;
       canvas.height = el.clientHeight;
     };
-
     const ro = new ResizeObserver(resize);
     if (containerRef.current) ro.observe(containerRef.current);
     resize();
     raf.current = requestAnimationFrame(draw);
-
-    return () => {
-      cancelAnimationFrame(raf.current);
-      ro.disconnect();
-    };
+    return () => { cancelAnimationFrame(raf.current); ro.disconnect(); };
   }, []);
 
   return (
