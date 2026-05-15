@@ -1,0 +1,32 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "umsE_IWQi5mLnHccAo__J"
+uri = "file://artifacts/portfolio/public/images/doctor-plant.png"
+type = "image"
+title = "Plant health app thumbnail"
+
+[[generated]]
+id = "spDmrawXoJ6-IusuUW3yZ"
+uri = "file://artifacts/portfolio/public/images/sociopedia.png"
+type = "image"
+title = "Campus social app thumbnail"
+
+[[generated]]
+id = "bofVKp1rSx1SXUdTitLw2"
+uri = "file://artifacts/portfolio/public/images/environment-study.png"
+type = "image"
+title = "3D Environment study"
+
+[[generated]]
+id = "QeqW2X6zVylnaR0TIt_sv"
+uri = "file://artifacts/portfolio/public/images/character-reel.png"
+type = "image"
+title = "Character animation reel"
+
+[[generated]]
+id = "3ZRnMP3SWj3RikbFLFgur"
+uri = "file://artifacts/portfolio/public/images/nuke-demo.png"
+type = "image"
+title = "Nuke compositing demo"
