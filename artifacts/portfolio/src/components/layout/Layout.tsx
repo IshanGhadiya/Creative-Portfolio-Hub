@@ -1,0 +1,24 @@
+import { Navbar } from "./Navbar";
+import { Footer } from "./Footer";
+import { CursorTrail } from "@/components/ui/CursorTrail";
+import { ParticleField } from "@/components/ui/ParticleField";
+import { ReactNode } from "react";
+
+interface LayoutProps {
+  children: ReactNode;
+  hideFooter?: boolean;
+}
+
+export function Layout({ children, hideFooter = false }: LayoutProps) {
+  return (
+    <div className="min-h-screen flex flex-col text-foreground selection:bg-primary selection:text-primary-foreground">
+      <CursorTrail />
+      <ParticleField />
+      <Navbar />
+      <main className="flex-1 flex flex-col">
+        {children}
+      </main>
+      {!hideFooter && <Footer />}
+    </div>
+  );
+}
