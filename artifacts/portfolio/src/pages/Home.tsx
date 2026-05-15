@@ -54,12 +54,12 @@ function InteractiveMesh() {
         />
       </mesh>
       <mesh ref={ringRef} position={[0, 0, -0.5]}>
-        <torusGeometry args={[2.2, 0.015, 8, 120]} />
-        <meshStandardMaterial color="#ff007f" emissive="#ff007f" emissiveIntensity={0.8} />
+        <torusGeometry args={[2.2, 0.012, 8, 120]} />
+        <meshStandardMaterial color="#ff007f" emissive="#ff007f" emissiveIntensity={0.25} transparent opacity={0.5} />
       </mesh>
       <mesh position={[0, 0, -0.8]}>
-        <torusGeometry args={[1.7, 0.008, 8, 120]} />
-        <meshStandardMaterial color="#00f0ff" emissive="#00f0ff" emissiveIntensity={0.5} transparent opacity={0.6} />
+        <torusGeometry args={[1.7, 0.012, 8, 120]} />
+        <meshStandardMaterial color="#00f0ff" emissive="#00f0ff" emissiveIntensity={0.9} transparent opacity={0.85} />
       </mesh>
     </>
   );

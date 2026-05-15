@@ -116,12 +116,12 @@ export function CSSFallbackScene({ height = "100%" }: { height?: string }) {
   }, []);
 
   const rings = [
-    { size: 340, border: "1px solid rgba(0,240,255,0.1)",  shadow: "" },
-    { size: 260, border: "1px solid rgba(0,240,255,0.15)", shadow: "0 0 30px rgba(0,240,255,0.03)" },
-    { size: 190, border: "1px solid rgba(255,0,127,0.12)", shadow: "" },
-    { size: 130, border: "1px solid rgba(0,240,255,0.25)", shadow: "0 0 20px rgba(0,240,255,0.05)" },
-    { size: 80,  border: "2px solid rgba(0,240,255,0.4)",  shadow: "0 0 15px rgba(0,240,255,0.08)" },
-    { size: 50,  border: "1px solid rgba(255,0,127,0.3)",  shadow: "" },
+    { size: 340, border: "1px solid rgba(0,240,255,0.18)", shadow: "0 0 40px rgba(0,240,255,0.04)" },
+    { size: 260, border: "1px solid rgba(0,240,255,0.28)", shadow: "0 0 30px rgba(0,240,255,0.06)" },
+    { size: 190, border: "1px solid rgba(255,0,127,0.06)", shadow: "" },
+    { size: 130, border: "2px solid rgba(0,240,255,0.45)", shadow: "0 0 20px rgba(0,240,255,0.12)" },
+    { size: 80,  border: "2px solid rgba(0,240,255,0.65)", shadow: "0 0 18px rgba(0,240,255,0.2)" },
+    { size: 50,  border: "1px solid rgba(255,0,127,0.1)",  shadow: "" },
   ];
 
   const particles = Array.from({ length: 12 }, (_, i) => ({
