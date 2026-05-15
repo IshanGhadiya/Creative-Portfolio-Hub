@@ -1,87 +1,7 @@
 import { Layout } from "@/components/layout/Layout";
 import { Link } from "wouter";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { MeshDistortMaterial, Float, Stars } from "@react-three/drei";
-import { Suspense, useRef, useEffect } from "react";
-import { WebGLGuard } from "@/components/ui/WebGLErrorBoundary";
-import * as THREE from "three";
-
-const mousePos = { x: 0, y: 0 };
-
-function MouseTracker() {
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      mousePos.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mousePos.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
-  return null;
-}
-
-function InteractiveMesh() {
-  const groupRef = useRef<THREE.Group>(null);
-  const ring1Ref = useRef<THREE.Mesh>(null);
-  const ring2Ref = useRef<THREE.Mesh>(null);
-  const ring3Ref = useRef<THREE.Mesh>(null);
-  const targetRot = useRef({ x: 0, y: 0 });
-
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    const t = state.clock.elapsedTime;
-    targetRot.current.x += (mousePos.y * 0.5 - targetRot.current.x) * 0.04;
-    targetRot.current.y += (mousePos.x * 0.7 - targetRot.current.y) * 0.04;
-    groupRef.current.rotation.x = targetRot.current.x;
-    groupRef.current.rotation.y = targetRot.current.y;
-    if (ring1Ref.current) ring1Ref.current.rotation.z = t * 0.25;
-    if (ring2Ref.current) ring2Ref.current.rotation.x = t * 0.18;
-    if (ring3Ref.current) ring3Ref.current.rotation.y = -t * 0.35;
-  });
-
-  return (
-    <group ref={groupRef}>
-      {/* Outer ring */}
-      <mesh ref={ring1Ref}>
-        <torusGeometry args={[2.0, 0.012, 8, 120]} />
-        <meshStandardMaterial color="#00f0ff" emissive="#00f0ff" emissiveIntensity={0.7} transparent opacity={0.7} />
-      </mesh>
-      {/* Middle ring - tilted */}
-      <mesh ref={ring2Ref} rotation={[Math.PI / 3, 0, 0]}>
-        <torusGeometry args={[1.4, 0.01, 8, 100]} />
-        <meshStandardMaterial color="#00d4ff" emissive="#00d4ff" emissiveIntensity={0.6} transparent opacity={0.6} />
-      </mesh>
-      {/* Inner ring - tilted other way */}
-      <mesh ref={ring3Ref} rotation={[0, Math.PI / 4, Math.PI / 4]}>
-        <torusGeometry args={[0.9, 0.01, 8, 80]} />
-        <meshStandardMaterial color="#00f0ff" emissive="#00f0ff" emissiveIntensity={0.9} transparent opacity={0.8} />
-      </mesh>
-      {/* Central sphere */}
-      <mesh>
-        <sphereGeometry args={[0.18, 32, 32]} />
-        <meshStandardMaterial color="#ffffff" emissive="#00f0ff" emissiveIntensity={2} />
-      </mesh>
-    </group>
-  );
-}
-
-function HeroScene() {
-  return (
-    <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ antialias: true, alpha: true }}>
-      <MouseTracker />
-      <ambientLight intensity={0.3} />
-      <pointLight position={[5, 5, 5]} intensity={1.5} color="#00f0ff" />
-      <pointLight position={[-5, -5, -5]} intensity={0.8} color="#ff007f" />
-      <Stars radius={80} depth={60} count={4000} factor={3} saturation={0} fade speed={0.8} />
-      <Suspense fallback={null}>
-        <Float speed={1.5} rotationIntensity={0.3} floatIntensity={0.6}>
-          <InteractiveMesh />
-        </Float>
-      </Suspense>
-    </Canvas>
-  );
-}
+import { CSSFallbackScene } from "@/components/ui/WebGLErrorBoundary";
 
 const works = [
   { title: "Doctor Plant", category: "Frontend Dev", img: "/images/doctor-plant.png" },
@@ -91,36 +11,30 @@ const works = [
 
 export default function Home() {
   const { scrollYProgress } = useScroll();
-  const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -80]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.25], [1, 0]);
+  const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -80]);
   const sceneOpacity = useTransform(scrollYProgress, [0, 0.35], [1, 0]);
-  const sceneScale = useTransform(scrollYProgress, [0, 0.35], [1, 1.08]);
 
   return (
     <Layout>
-      {/* ─── Full-width hero with 3D background ─────────────────────────────── */}
+      {/* ─── Hero ───────────────────────────────────────────────────────────── */}
       <section className="relative w-full min-h-[calc(100vh-4rem)] overflow-hidden flex items-center">
 
-        {/* 3D scene fills the full section */}
-        <motion.div
-          style={{ opacity: sceneOpacity, scale: sceneScale }}
-          className="absolute inset-0 z-0"
-        >
-          <WebGLGuard>
-            <HeroScene />
-          </WebGLGuard>
+        {/* JARVIS HUD fills the full section */}
+        <motion.div style={{ opacity: sceneOpacity }} className="absolute inset-0 z-0">
+          <CSSFallbackScene height="100%" />
         </motion.div>
 
-        {/* Gradient veil so text stays readable over the 3D bg */}
+        {/* Gradient veil — keeps text readable */}
         <div
           className="absolute inset-0 z-10 pointer-events-none"
           style={{
             background:
-              "linear-gradient(to right, rgba(10,10,12,0.92) 0%, rgba(10,10,12,0.65) 45%, rgba(10,10,12,0.15) 75%, rgba(10,10,12,0) 100%)",
+              "linear-gradient(to right, rgba(8,13,20,0.94) 0%, rgba(8,13,20,0.68) 42%, rgba(8,13,20,0.12) 72%, rgba(8,13,20,0) 100%)",
           }}
         />
 
-        {/* Text content */}
+        {/* Text */}
         <div className="container mx-auto px-4 relative z-20">
           <motion.div
             style={{ y: heroY, opacity: heroOpacity }}
@@ -165,13 +79,13 @@ export default function Home() {
             <div className="flex flex-wrap gap-4 mt-4">
               <Link
                 href="/works"
-                className="inline-flex h-12 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-all hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(0,240,255,0.35)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="inline-flex h-12 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-all hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(0,240,255,0.35)] focus-visible:outline-none"
               >
                 Explore Works
               </Link>
               <Link
                 href="/about"
-                className="inline-flex h-12 items-center justify-center rounded-md border border-border bg-background/40 backdrop-blur-sm px-8 text-sm font-medium shadow-sm transition-all hover:border-primary/50 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="inline-flex h-12 items-center justify-center rounded-md border border-border bg-background/40 backdrop-blur-sm px-8 text-sm font-medium transition-all hover:border-primary/50 hover:bg-muted focus-visible:outline-none"
               >
                 About & Contact
               </Link>
