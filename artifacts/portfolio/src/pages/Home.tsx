@@ -22,46 +22,47 @@ function MouseTracker() {
 }
 
 function InteractiveMesh() {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const ringRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const ring1Ref = useRef<THREE.Mesh>(null);
+  const ring2Ref = useRef<THREE.Mesh>(null);
+  const ring3Ref = useRef<THREE.Mesh>(null);
   const targetRot = useRef({ x: 0, y: 0 });
 
   useFrame((state) => {
-    if (!meshRef.current || !ringRef.current) return;
-    targetRot.current.x += (mousePos.y * 0.6 - targetRot.current.x) * 0.05;
-    targetRot.current.y += (mousePos.x * 0.9 - targetRot.current.y) * 0.05;
-    meshRef.current.rotation.x = targetRot.current.x + state.clock.elapsedTime * 0.08;
-    meshRef.current.rotation.y = targetRot.current.y + state.clock.elapsedTime * 0.12;
-    ringRef.current.rotation.x = -targetRot.current.x * 0.5 + state.clock.elapsedTime * 0.05;
-    ringRef.current.rotation.z = targetRot.current.y * 0.5 + state.clock.elapsedTime * 0.07;
-    const scale = 1 + (Math.abs(mousePos.x) + Math.abs(mousePos.y)) * 0.04;
-    meshRef.current.scale.setScalar(scale);
+    if (!groupRef.current) return;
+    const t = state.clock.elapsedTime;
+    targetRot.current.x += (mousePos.y * 0.5 - targetRot.current.x) * 0.04;
+    targetRot.current.y += (mousePos.x * 0.7 - targetRot.current.y) * 0.04;
+    groupRef.current.rotation.x = targetRot.current.x;
+    groupRef.current.rotation.y = targetRot.current.y;
+    if (ring1Ref.current) ring1Ref.current.rotation.z = t * 0.25;
+    if (ring2Ref.current) ring2Ref.current.rotation.x = t * 0.18;
+    if (ring3Ref.current) ring3Ref.current.rotation.y = -t * 0.35;
   });
 
   return (
-    <>
-      <mesh ref={meshRef}>
-        <torusKnotGeometry args={[1.1, 0.32, 180, 32]} />
-        <MeshDistortMaterial
-          color="#00f0ff"
-          emissive="#003344"
-          emissiveIntensity={0.6}
-          metalness={0.9}
-          roughness={0.1}
-          distort={0.35}
-          speed={2}
-          wireframe
-        />
+    <group ref={groupRef}>
+      {/* Outer ring */}
+      <mesh ref={ring1Ref}>
+        <torusGeometry args={[2.0, 0.012, 8, 120]} />
+        <meshStandardMaterial color="#00f0ff" emissive="#00f0ff" emissiveIntensity={0.7} transparent opacity={0.7} />
       </mesh>
-      <mesh ref={ringRef} position={[0, 0, -0.5]}>
-        <torusGeometry args={[2.2, 0.012, 8, 120]} />
-        <meshStandardMaterial color="#ff007f" emissive="#ff007f" emissiveIntensity={0.25} transparent opacity={0.5} />
+      {/* Middle ring - tilted */}
+      <mesh ref={ring2Ref} rotation={[Math.PI / 3, 0, 0]}>
+        <torusGeometry args={[1.4, 0.01, 8, 100]} />
+        <meshStandardMaterial color="#00d4ff" emissive="#00d4ff" emissiveIntensity={0.6} transparent opacity={0.6} />
       </mesh>
-      <mesh position={[0, 0, -0.8]}>
-        <torusGeometry args={[1.7, 0.012, 8, 120]} />
-        <meshStandardMaterial color="#00f0ff" emissive="#00f0ff" emissiveIntensity={0.9} transparent opacity={0.85} />
+      {/* Inner ring - tilted other way */}
+      <mesh ref={ring3Ref} rotation={[0, Math.PI / 4, Math.PI / 4]}>
+        <torusGeometry args={[0.9, 0.01, 8, 80]} />
+        <meshStandardMaterial color="#00f0ff" emissive="#00f0ff" emissiveIntensity={0.9} transparent opacity={0.8} />
       </mesh>
-    </>
+      {/* Central sphere */}
+      <mesh>
+        <sphereGeometry args={[0.18, 32, 32]} />
+        <meshStandardMaterial color="#ffffff" emissive="#00f0ff" emissiveIntensity={2} />
+      </mesh>
+    </group>
   );
 }
 
